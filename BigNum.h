@@ -12,6 +12,22 @@
 #define SUPPORT_IFSTREAM 0
 #define SUPPORT_ISQRT 0
 #define SUPPORT_EVAL 0 // special bonus
+class BigInteger;
+inline BigInteger operator+(BigInteger lhs, const BigInteger& rhs);
+inline BigInteger operator-(BigInteger lhs, const BigInteger& rhs);
+inline BigInteger operator*(BigInteger lhs, const BigInteger& rhs);
+inline BigInteger operator/(BigInteger lhs, const BigInteger& rhs);
+inline BigInteger operator%(BigInteger lhs, const BigInteger& rhs);
+
+// alternatively you can implement 
+// std::strong_ordering operator<=>(const BigInteger& lhs, const BigInteger& rhs);
+// idea is, that all comparison should work, it is not important how you do it
+inline bool operator==(const BigInteger& lhs, const BigInteger& rhs);
+inline bool operator!=(const BigInteger& lhs, const BigInteger& rhs);
+inline bool operator<(const BigInteger& lhs, const BigInteger& rhs);
+inline bool operator>(const BigInteger& lhs, const BigInteger& rhs);
+inline bool operator<=(const BigInteger& lhs, const BigInteger& rhs);
+inline bool operator>=(const BigInteger& lhs, const BigInteger& rhs);
 
 class BigInteger
 {
@@ -78,6 +94,11 @@ public:
 		return result;
 	}
 	// binary arithmetics operators
+	BigInteger& operator+=(const BigInteger& rhs) {
+		const BigInteger temp = *this + rhs;
+		*this = temp;
+		return *this;
+	}
 	BigInteger& operator-=(const BigInteger& rhs) {
 		const BigInteger temp = *this - rhs;
 		*this = temp;
@@ -152,54 +173,18 @@ private:
 	friend std::vector<int> add(const std::vector<int>& lhs, const std::vector<int>& rhs);
 	friend std::vector<int> subtract(const std::vector<int>& lhs, const std::vector<int>& rhs);
 };
+std::vector<int> add(const std::vector<int>& lhs, const std::vector<int>& rhs);
+std::vector<int> subtract(const std::vector<int>& lhs, const std::vector<int>& rhs);
 
 inline BigInteger operator+(BigInteger lhs, const BigInteger& rhs) {
-	auto add = [](auto lhs, auto rhs) {
-		std::vector<int> result;
-		int carry = 0;
-		size_t n = std::max(lhs.size(), rhs.size());
-
-		for (size_t i = 0; i < n || carry; ++i) {
-			int sum = carry;
-			if (i < lhs.size()) {
-				sum += lhs[i];
-			}
-			if (i < rhs.size()) {
-				sum += rhs[i];
-			}
-			result.push_back(sum % 10);
-			carry = sum / 10;
-		}
-
-		return result;
-	};
-	auto subtract = [](auto lhs, auto rhs) {
-		std::vector<int> result;
-		int borrow = 0;
-		size_t n = lhs.size();
-
-		for (size_t i = 0; i < n; ++i) {
-			int diff = lhs[i] - borrow - (i < rhs.size() ? rhs[i] : 0);
-			borrow = 0;
-			if (diff < 0) {
-				diff += 10;
-				borrow = 1;
-			}
-			result.push_back(diff);
-		}
-
-		while (!result.empty() && result.back() == 0) {
-			result.pop_back();
-		}
-
-		return result;
-	};
 	BigInteger addition = BigInteger();
 	if (getSign(lhs) == getSign(rhs)) {
 		setNumber(addition, add(getNumber(lhs), getNumber(rhs)));
 		setSign(addition, getSign(lhs));
 	}
 	else {
+		if (abs(lhs) == abs(rhs)) return BigInteger(0);
+
 		if (abs(lhs) > abs(rhs)) {
 			setNumber(addition, subtract(getNumber(lhs), getNumber(rhs)));
 			setSign(addition, getSign(lhs));
@@ -210,12 +195,9 @@ inline BigInteger operator+(BigInteger lhs, const BigInteger& rhs) {
 		}
 	}
 
-	// Handle zero
-	if (getNumber(addition) == std::vector<int>{0})
-		setSign(addition, 1);
-
 	return addition;
 }
+
 inline BigInteger operator-(BigInteger lhs, const BigInteger& rhs) {
 	BigInteger temp(rhs);
 	setSign(temp, -getSign(rhs));
@@ -227,6 +209,11 @@ inline BigInteger operator*(BigInteger lhs, const BigInteger& rhs) {
 	auto rn = getNumber(rhs);
 	auto rs = getSign(rhs);
 	auto ls = getSign(lhs);
+	auto zero = std::vector<int>{ 0 };
+	auto one = std::vector<int>{ 1 };
+	if ((ln == zero) || (rn == zero)) return BigInteger(0);
+	if (ln == one) return BigInteger(rhs);
+	if (rn == one) return BigInteger(lhs);
 	std::vector<int> resultNum(ln.size() + rn.size(), 0);
 	for (size_t i = 0; i < ln.size(); ++i) {
 		int carry = 0;
@@ -247,7 +234,7 @@ inline BigInteger operator*(BigInteger lhs, const BigInteger& rhs) {
 	}
 
 	setNumber(result, resultNum);
-	setSign(result, getSign(lhs) * getSign(rhs));
+	setSign(result, rs * ls);
 
 	return result;
 }
@@ -265,9 +252,8 @@ inline BigInteger operator/(BigInteger lhs, const BigInteger& rhs) {
 	auto currentNum = getNumber(current);
 	auto resultNum = getNumber(result);
 	auto& lhsNum = getNumber(lhs);
-	auto& rhsNum = getNumber(rhs);
 
-	for (int i = lhsNum.size() - 1; i >= 0; i--) {
+	for (auto i = lhsNum.size() - 1; i >= 0; i--) {
 		currentNum.insert(currentNum.begin(), lhsNum[i]);
 		while (!currentNum.empty() && currentNum.back() == 0) {
 			currentNum.pop_back();
@@ -340,6 +326,7 @@ inline bool operator>(const BigInteger& lhs, const BigInteger& rhs) {
 			return true;
 		return !(ln > rn);
 	}
+	return false;
 }
 inline bool operator<=(const BigInteger& lhs, const BigInteger& rhs) {
 	return lhs < rhs || lhs == rhs;
@@ -349,7 +336,7 @@ inline bool operator>=(const BigInteger& lhs, const BigInteger& rhs) {
 }
 
 inline std::ostream& operator<<(std::ostream& lhs, const BigInteger& rhs) {
-	rhs.sign == -1 ? lhs << '-' : lhs << '+';
+	if (rhs.sign == -1)  lhs << '-';
 	for (int digit : rhs.number) {
 		lhs << digit;
 	}
@@ -419,6 +406,54 @@ inline std::istream& operator>>(std::istream& lhs, BigRational& rhs); // bonus
 inline BigInteger eval(const std::string&);
 #endif
 
+std::vector<int> add(const std::vector<int>& lhs, const std::vector<int>& rhs) {
+	std::vector<int> result;
+	int carry = 0;
+	size_t n = std::max(lhs.size(), rhs.size());
+
+	for (size_t i = 0; i < n || carry; ++i) {
+		int lhs_digit = i < lhs.size() ? lhs[i] : 0;
+		int rhs_digit = i < rhs.size() ? rhs[i] : 0;
+		int sum = lhs_digit + rhs_digit + carry;
+		result.push_back(sum % 10);
+		carry = sum / 10;
+}
+
+	std::reverse(result.begin(), result.end());
+	return result;
+}
+
+std::vector<int> subtract(const std::vector<int>& lhs, const std::vector<int>& rhs) {
+	std::vector<int> result;
+	int borrow = 0;
+	size_t n = lhs.size();
+
+	for (size_t i = 0; i < n; ++i) {
+		int lhs_digit = i < lhs.size() ? lhs[i] : 0;
+		int rhs_digit = i < rhs.size() ? rhs[i] : 0;
+		int diff = lhs_digit - borrow - rhs_digit;
+		borrow = 0;
+		if (diff < 0) {
+			diff += 10;
+			borrow = 1;
+		}
+		result.push_back(diff);
+	}
+
+	// Remove leading zeros
+	while (!result.empty() && result.back() == 0) {
+		result.pop_back();
+	}
+
+	// In case the result is zero
+	if (result.empty()) {
+		result.push_back(0);
+	}
+
+	std::reverse(result.begin(), result.end());
+	return result;
+}
+
 int getSign(const BigInteger& bigInt) {
 	return bigInt.sign;
 }
@@ -439,47 +474,5 @@ const std::vector<int>& getNumber(const BigInteger& bigInt) {
 BigInteger abs(const BigInteger& bigInt) {
 	BigInteger result = BigInteger(bigInt);
 	result.sign = 1;
-	return result;
-}
-
-std::vector<int> add(const std::vector<int>& lhs, const std::vector<int>& rhs) {
-	std::vector<int> result;
-	int carry = 0;
-	size_t n = std::max(lhs.size(), rhs.size());
-
-	for (size_t i = 0; i < n || carry; ++i) {
-		int sum = carry;
-		if (i < lhs.size()) {
-			sum += lhs[i];
-		}
-		if (i < rhs.size()) {
-			sum += rhs[i];
-		}
-		result.push_back(sum % 10);
-		carry = sum / 10;
-	}
-
-	return result;
-}
-
-std::vector<int> subtract(const std::vector<int>& lhs, const std::vector<int>& rhs) {
-	std::vector<int> result;
-	int borrow = 0;
-	size_t n = lhs.size();
-
-	for (size_t i = 0; i < n; ++i) {
-		int diff = lhs[i] - borrow - (i < rhs.size() ? rhs[i] : 0);
-		borrow = 0;
-		if (diff < 0) {
-			diff += 10;
-			borrow = 1;
-		}
-		result.push_back(diff);
-	}
-
-	while (!result.empty() && result.back() == 0) {
-		result.pop_back();
-	}
-
 	return result;
 }
