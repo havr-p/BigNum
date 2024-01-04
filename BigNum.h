@@ -60,7 +60,7 @@ public:
             sign = -1;
             s.erase(0, 1);
         }
-        else if (s[0] != '0') throw std::invalid_argument("received bad formatted string");
+        else if (!std::isdigit(s[0])) throw std::invalid_argument("received bad formatted string");
 
         //remove leading zeroes but preserve last one
         while (s[0] == '0') s.erase(0, 1);
@@ -124,14 +124,13 @@ public:
 
         double numAsDouble = 0;
         for (size_t i = 0; i < number.size(); ++i) {
-            numAsDouble += number[i] * std::pow(10, i);
+            numAsDouble += number[i] * std::pow(10, number.size() - i - 1);
         }
 
         // Check for overflow
         if (!std::isfinite(numAsDouble)) {
-            throw std::runtime_error("Number is too large to compute its square root as a double.");
+            throw std::runtime_error("Number is too large");
         }
-
         return std::sqrt(numAsDouble);
     }
 #if SUPPORT_ISQRT == 1
@@ -242,36 +241,45 @@ inline BigInteger operator/(BigInteger lhs, const BigInteger& rhs) {
         throw std::runtime_error("Division by zero");
     }
 
-    BigInteger result;
-    setNumber(result, std::vector<int>());
-    setSign(result, getSign(lhs) * getSign(rhs));
+    BigInteger quotient;
+    auto b = rhs;
+    setNumber(quotient, std::vector<int>{0});
+    setSign(quotient, 1);
+    int sign = (getSign(lhs) * getSign(rhs));
+    setSign(lhs, 1);
+    setSign(b, 1);
 
-    BigInteger current;
-    setSign(current, 1);
-    auto currentNum = getNumber(current);
-    auto resultNum = getNumber(result);
-    auto& lhsNum = getNumber(lhs);
-    for (int i = static_cast<int>(lhsNum.size()) - 1; i >= 0; i--) {
-        currentNum.insert(currentNum.begin(), lhsNum[i]);
-        while (!currentNum.empty() && currentNum.back() == 0) {
-            currentNum.pop_back();
+    while (lhs >= b) {
+        lhs -= b;
+        auto qNum = getNumber(quotient);
+        if (qNum.back() < 9) {
+            qNum.back()++;
         }
-        int count = 0;
-        while (current >= rhs) {
-            current -= rhs;
-            count++;
+        else {
+            int i = static_cast<int>(qNum.size() - 1);
+            while (i >= 0 && qNum[i] == 9) {
+                qNum[i] = 0;
+                if (i == 0) {
+                    qNum.insert(qNum.begin(), 1);
+                    break;
+                }
+                i--;
+                qNum[i]++;
+            }
         }
-        resultNum.insert(resultNum.begin(), count);
+        setNumber(quotient, qNum);
     }
 
-    while (!resultNum.empty() && resultNum.back() == 0) {
+    setSign(quotient, sign);
+
+    auto resultNum = getNumber(quotient);
+    while (resultNum.size() > 1 && resultNum.back() == 0) {
         resultNum.pop_back();
     }
-    if (resultNum.empty()) {
-        resultNum.push_back(0);
-    }
-    std::reverse(resultNum.begin(), resultNum.end());
-    return result;
+
+    setNumber(quotient, resultNum);
+
+    return quotient;
 }
 inline BigInteger operator%(BigInteger lhs, const BigInteger& rhs) {
     BigInteger quotient = lhs / rhs;
@@ -424,26 +432,59 @@ std::vector<int> add(const std::vector<int>& lhs, const std::vector<int>& rhs) {
 }
 
 std::vector<int> subtract(const std::vector<int>& lhs, const std::vector<int>& rhs) {
-    std::vector<int> result;
-    int borrow = 0;
-    size_t maxLength = std::max(lhs.size(), rhs.size());
+    // Ensure lhs is not smaller than rhs. If it is, swap and note that result is negative.
+    bool negativeResult = false;
+    auto a = lhs;
+    auto b = rhs;
 
-    for (size_t i = 0; i < maxLength; ++i) {
-        int diff = (i < lhs.size() ? lhs[i] : 0) - (i < rhs.size() ? rhs[i] : 0) - borrow;
-        borrow = 0;
-        if (diff < 0) {
-            diff += 10;
-            borrow = 1;
-        }
-        result.push_back(diff);
+    if (a.size() < b.size() || (a.size() == b.size() && a < b)) {
+        negativeResult = true;
+        std::swap(a, b);
     }
 
+    // Pad the shorter number with zeros
+    b.insert(b.begin(), a.size() - b.size(), 0);
+
+    std::vector<int> result;
+    int borrow = 0;
+
+    // Subtract each digit
+    for (int i = static_cast<int>(a.size() - 1); i >= 0; --i) {
+        int digitA = a[i];
+        int digitB = b[i] + borrow;
+
+        if (digitA < digitB) {
+            digitA += 10;
+            borrow = 1;
+        }
+        else {
+            borrow = 0;
+        }
+
+        result.push_back(digitA - digitB);
+    }
+
+    // Remove leading zeros from result
     while (!result.empty() && result.back() == 0) {
         result.pop_back();
     }
 
+    // If result is empty, return zero
+    if (result.empty()) {
+        return { 0 };
+    }
+
+    // If the result is negative, add a negative sign
+    if (negativeResult) {
+        result.push_back(-1); // Assuming -1 denotes negative sign
+    }
+
+    // Reverse the result to get the correct order
+    std::reverse(result.begin(), result.end());
+
     return result;
 }
+
 
 //std::vector<int> karatsubaMultiplication(const std::vector<int>& x, const std::vector<int>& y) {
 //	auto n = max(x.size(), y.size());
