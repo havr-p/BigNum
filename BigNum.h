@@ -3,55 +3,81 @@
 #include <string>
 #include <cstdint>
 #include <vector>
-#include <ctype.h>
+#include <cctype>
 #include <functional>
 #include <iostream>
+#include <sstream>
 #include <cmath>
 
 // if you do not plan to implement bonus, you can delete those lines
 // or just keep them as is and do not define the macro to 1
-#define SUPPORT_IFSTREAM 0
+#define SUPPORT_IFSTREAM 1
 #define SUPPORT_ISQRT 0
 #define SUPPORT_EVAL 0 // special bonus
 
 class BigInteger;
+
 inline BigInteger operator+(BigInteger lhs, const BigInteger& rhs);
+
 inline BigInteger operator-(BigInteger lhs, const BigInteger& rhs);
+
 inline BigInteger operator*(BigInteger lhs, const BigInteger& rhs);
+
 inline BigInteger operator/(BigInteger lhs, const BigInteger& rhs);
+
 inline BigInteger operator%(BigInteger lhs, const BigInteger& rhs);
 
 inline bool operator==(const BigInteger& lhs, const BigInteger& rhs);
+
 inline bool operator!=(const BigInteger& lhs, const BigInteger& rhs);
+
 inline bool operator<(const BigInteger& lhs, const BigInteger& rhs);
+
 inline bool operator>(const BigInteger& lhs, const BigInteger& rhs);
+
 inline bool operator<=(const BigInteger& lhs, const BigInteger& rhs);
+
 inline bool operator>=(const BigInteger& lhs, const BigInteger& rhs);
 
-class BigInteger
-{
+static double toDouble(const std::vector<int>& num);
+
+class BigInteger {
 public:
     // constructors
     BigInteger() {
         number = { 0 };
     }
+
     BigInteger(int64_t n) {
-        sign = (n < 0) ? -1 : 1;
-        n = std::abs(n);
-        if (n == 0) number.push_back(0);
-        while (n != 0)
-        {
-            int digit = (int)n % 10;
-            number.push_back(digit);
-            n /= 10;
+
+        if (n == std::numeric_limits<int64_t>::min()) {
+            sign = -1;
+
+            uint64_t positive_n = static_cast<uint64_t>(-(n + 1)) + 1;
+            while (positive_n != 0) {
+                int digit = static_cast<int>(positive_n % 10);
+                number.push_back(digit);
+                positive_n /= 10;
+            }
+        }
+        else {
+            sign = (n < 0) ? -1 : 1;
+            n = std::abs(n);
+            if (n == 0) number.push_back(0);
+            while (n != 0) {
+                int digit = static_cast<int>(n % 10);
+                number.push_back(digit);
+                n /= 10;
+            }
         }
         std::reverse(number.begin(), number.end());
     }
+
     explicit BigInteger(const std::string& str) {
         std::string s = str;
         if (s.empty()) throw std::invalid_argument("empty string");
         //only sign
-        if (s.size() == 1 && s[0] > 'a') throw std::invalid_argument("received bad formatted string - only sign");
+        if (s.size() == 1 && !std::isdigit(s[0])) throw std::invalid_argument("received bad formatted string - only sign");
         if (s[0] == '+') {
             sign = 1;
             s.erase(0, 1);
@@ -77,62 +103,72 @@ public:
             }
         }
     }
+
     // copy
     BigInteger(const BigInteger& other) {
         number = other.number;
         sign = other.sign;
     }
+
     BigInteger& operator=(const BigInteger& rhs) = default;
+
     // unary operators
     const BigInteger& operator+() const {
         return *this;
     }
+
     BigInteger operator-() const {
         BigInteger result = *this;
         result.sign = -this->sign;
         return result;
     }
+
     // binary arithmetics operators
     BigInteger& operator+=(const BigInteger& rhs) {
         const BigInteger temp = *this + rhs;
         *this = temp;
         return *this;
     }
+
     BigInteger& operator-=(const BigInteger& rhs) {
         const BigInteger temp = *this - rhs;
         *this = temp;
         return *this;
     }
+
     BigInteger& operator*=(const BigInteger& rhs) {
         const BigInteger temp = *this * rhs;
         *this = temp;
         return *this;
     }
+
     BigInteger& operator/=(const BigInteger& rhs) {
         *this = *this / rhs;
         return *this;
     }
+
     BigInteger& operator%=(const BigInteger& rhs) {
         *this = *this % rhs;
         return *this;
     }
+
 
     double sqrt() const {
         if (sign == -1) {
             throw std::runtime_error("invalid argument - negative number.");
         }
 
-        double numAsDouble = 0;
-        for (size_t i = 0; i < number.size(); ++i) {
-            numAsDouble += number[i] * std::pow(10, number.size() - i - 1);
-        }
+        double numAsDouble = toDouble(number);
 
-        // Check for overflow
-        if (!std::isfinite(numAsDouble)) {
-            throw std::runtime_error("Number is too large");
-        }
         return std::sqrt(numAsDouble);
     }
+
+    std::string toString() {
+        std::ostringstream stream;
+        stream << *this;
+        return stream.str();
+    }
+
 #if SUPPORT_ISQRT == 1
     BigInteger isqrt() const {
         if (sign < 0) {
@@ -162,34 +198,50 @@ private:
     int sign = 1;
 
     friend std::ostream& operator<<(std::ostream& os, const BigInteger& bigInt);
-    friend bool isdigit(char ch);
+
     friend int getSign(const BigInteger& bigInt);
+
     friend void setSign(BigInteger& bigInt, int sign);
+
     friend const std::vector<int>& getNumber(const BigInteger& bigInt);
+
     friend void setNumber(BigInteger& bigInt, const std::vector<int>& num);
+
     friend BigInteger abs(const BigInteger& bigInt);
+
     friend std::vector<int> add(const std::vector<int>& lhs, const std::vector<int>& rhs);
+
     friend std::vector<int> subtract(const std::vector<int>& lhs, const std::vector<int>& rhs);
+
+    friend inline BigInteger operator/(BigInteger lhs, const BigInteger& rhs);
 };
+
 std::vector<int> add(const std::vector<int>& lhs, const std::vector<int>& rhs);
+
 std::vector<int> subtract(const std::vector<int>& lhs, const std::vector<int>& rhs);
+
 //std::vector<int> karatsubaMultiplication(const std::vector<int>& x, const std::vector<int>& y);
 std::vector<int> karatsuba_mul(const std::vector<int>& x, const std::vector<int>& y);
+
 std::vector<int> naive_mul(const std::vector<int>& x, const std::vector<int>& y);
 
-/*
-* Bigint operator + (Bigint b) {
-        if(sign != b.sign) return (*this)-b.inverseSign();
-        Bigint sum;
-        for(int i=0, carry=0; i<a.size() || i<b.size() || carry; i++){
-            if (i<a.size()) carry+=a[i]-'0';
-            if (i<b.size()) carry+=b[i]-'0';
-            sum.a += (carry % 10 + 48);
-            carry /= 10;
-        }
-        return sum.Remove0(sign);
+static double toDouble(const std::vector<int>& num) {
+    double numAsDouble = 0;
+    for (size_t i = 0; i < num.size(); ++i) {
+        numAsDouble += num[i] * std::pow(10, num.size() - i - 1);
     }
-*/
+
+    // Check for overflow
+    if (!std::isfinite(numAsDouble)) {
+        throw std::runtime_error("Number is too large");
+    }
+    return numAsDouble;
+}
+
+static double toDouble(const BigInteger& bi) {
+    return toDouble(getNumber(bi));
+}
+
 
 inline BigInteger operator+(BigInteger lhs, const BigInteger& rhs) {
     BigInteger addition = BigInteger();
@@ -218,6 +270,7 @@ inline BigInteger operator-(BigInteger lhs, const BigInteger& rhs) {
     setSign(temp, -getSign(rhs));
     return temp + lhs;
 }
+
 inline BigInteger operator*(BigInteger lhs, const BigInteger& rhs) {
     BigInteger result;
     auto ln = getNumber(lhs);
@@ -236,55 +289,53 @@ inline BigInteger operator*(BigInteger lhs, const BigInteger& rhs) {
 
     return result;
 }
+
+
 inline BigInteger operator/(BigInteger lhs, const BigInteger& rhs) {
+    auto b = rhs;
     if (getNumber(rhs) == std::vector<int>{0}) {
         throw std::runtime_error("Division by zero");
     }
 
-    BigInteger quotient;
-    auto b = rhs;
-    setNumber(quotient, std::vector<int>{0});
-    setSign(quotient, 1);
-    int sign = (getSign(lhs) * getSign(rhs));
+    BigInteger quotient(0);
+    BigInteger remainder(0);
+    int quotientSign = getSign(lhs) * getSign(b);
+
     setSign(lhs, 1);
     setSign(b, 1);
 
-    while (lhs >= b) {
-        lhs -= b;
+    for (int digit : getNumber(lhs)) {
+        remainder = remainder * 10 + BigInteger(digit);
+        int count = 0;
+        while (remainder >= b) {
+            remainder -= b;
+            count++;
+        }
         auto qNum = getNumber(quotient);
-        if (qNum.back() < 9) {
-            qNum.back()++;
-        }
-        else {
-            int i = static_cast<int>(qNum.size() - 1);
-            while (i >= 0 && qNum[i] == 9) {
-                qNum[i] = 0;
-                if (i == 0) {
-                    qNum.insert(qNum.begin(), 1);
-                    break;
-                }
-                i--;
-                qNum[i]++;
-            }
-        }
+        qNum.push_back(count);
         setNumber(quotient, qNum);
     }
 
-    setSign(quotient, sign);
 
-    auto resultNum = getNumber(quotient);
-    while (resultNum.size() > 1 && resultNum.back() == 0) {
-        resultNum.pop_back();
+    auto quotientNum = getNumber(quotient);
+    auto it = std::find_if(quotientNum.begin(), quotientNum.end(), [](int x) { return x != 0; });
+    quotientNum.erase(quotientNum.begin(), it);
+    if (quotientNum.empty()) {
+        quotientNum.push_back(0);
     }
-
-    setNumber(quotient, resultNum);
+    setNumber(quotient, quotientNum);
+    setSign(quotient, quotientSign);
 
     return quotient;
 }
+
 inline BigInteger operator%(BigInteger lhs, const BigInteger& rhs) {
-    BigInteger quotient = lhs / rhs;
-    BigInteger product = quotient * rhs;
-    return lhs - product;
+    auto a = abs(lhs);
+    auto b = abs(rhs);
+    BigInteger quotient = a / b;
+    BigInteger product = quotient * b;
+    auto res = a - product;
+    return res;
 }
 
 // alternatively you can implement
@@ -293,9 +344,11 @@ inline BigInteger operator%(BigInteger lhs, const BigInteger& rhs) {
 inline bool operator==(const BigInteger& lhs, const BigInteger& rhs) {
     return getSign(lhs) == getSign(rhs) && getNumber(lhs) == getNumber(rhs);
 }
+
 inline bool operator!=(const BigInteger& lhs, const BigInteger& rhs) {
     return !(lhs == rhs);
 }
+
 inline bool operator<(const BigInteger& lhs, const BigInteger& rhs) {
     if (getSign(lhs) != getSign(rhs)) {
         return getSign(lhs) < getSign(rhs);
@@ -307,6 +360,7 @@ inline bool operator<(const BigInteger& lhs, const BigInteger& rhs) {
     }
     return getSign(lhs) == 1 ? ln < rn : ln > rn;
 }
+
 inline bool operator>(const BigInteger& lhs, const BigInteger& rhs) {
     auto ln = getNumber(lhs);
     auto rn = getNumber(rhs);
@@ -334,15 +388,17 @@ inline bool operator>(const BigInteger& lhs, const BigInteger& rhs) {
     }
     return false;
 }
+
 inline bool operator<=(const BigInteger& lhs, const BigInteger& rhs) {
     return lhs < rhs || lhs == rhs;
 }
+
 inline bool operator>=(const BigInteger& lhs, const BigInteger& rhs) {
     return lhs > rhs || lhs == rhs;
 }
 
 inline std::ostream& operator<<(std::ostream& lhs, const BigInteger& rhs) {
-    if (rhs.sign == -1)  lhs << '-';
+    if (rhs.sign == -1 && !(rhs.number.size() == 1 && rhs.number[0] == 0)) lhs << '-';
     for (int digit : rhs.number) {
         lhs << digit;
     }
@@ -350,62 +406,300 @@ inline std::ostream& operator<<(std::ostream& lhs, const BigInteger& rhs) {
 }
 
 #if SUPPORT_IFSTREAM == 1
+
 // this should behave exactly the same as reading int with respect to
 // whitespace, consumed characters etc...
-inline std::istream& operator>>(std::istream& lhs, BigInteger& rhs); // bonus
+inline std::istream& operator>>(std::istream& lhs, BigInteger& rhs) {
+    std::string input;
+    lhs >> input;
+
+    if (input.empty() || (input.size() == 1 && input[0] == '-')) {
+        lhs.setstate(std::ios::failbit);
+        return lhs;
+    }
+
+    try {
+        rhs = BigInteger(input);
+    }
+    catch (const std::invalid_argument&) {
+        lhs.setstate(std::ios::failbit);
+    }
+
+    return lhs;
+} // bonus
 #endif
 
+BigInteger gcd(const BigInteger& a, const BigInteger& b);
 
-class BigRational
-{
+uint64_t gcd64(const uint64_t& a, const uint64_t& b);
+
+void normalizeInner(BigInteger& numerator, BigInteger& denominator);
+
+class BigRational;
+
+inline BigRational operator+(BigRational lhs, const BigRational& rhs);
+
+inline BigRational operator-(BigRational lhs, const BigRational& rhs);
+
+inline BigRational operator*(BigRational lhs, const BigRational& rhs);
+
+inline BigRational operator/(BigRational lhs, const BigRational& rhs);
+
+
+class BigRational {
 public:
     // constructors
-    BigRational();
-    BigRational(int64_t a, int64_t b);
-    BigRational(const std::string& a, const std::string& b);
-    // copy
-    BigRational(const BigRational& other);
-    BigRational& operator=(const BigRational& rhs);
-    // unary operators
-    const BigRational& operator+() const;
-    BigRational operator-() const;
-    // binary arithmetics operators
-    BigRational& operator+=(const BigRational& rhs);
-    BigRational& operator-=(const BigRational& rhs);
-    BigRational& operator*=(const BigRational& rhs);
-    BigRational& operator/=(const BigRational& rhs);
+    BigRational() {
+        numerator = BigInteger(0);
+        denominator = BigInteger(1);
+    }
 
-    double sqrt() const;
+    BigRational(int64_t a, int64_t b) {
+        if (b == 0) throw std::runtime_error("invalid argument - zero denominator.");
+        auto num = std::make_unsigned_t<int64_t>(a);
+        auto denom = std::make_unsigned_t<int64_t>(b);
+        auto d = gcd64(num, denom);
+        numerator = BigInteger(static_cast<int64_t>(a / d));
+        denominator = BigInteger(static_cast<int64_t>(b / d));
+        //normalizeInner(numerator, denominator);
+    }
+    //    if (b[0] == '0' && b.size() == 1) throw std::runtime_error("invalid argument - zero denominator.");
+    //    numerator = BigInteger(a);
+    //    denominator = BigInteger(b);
+    //    normalizeInner(numerator, denominator);
+
+    BigRational(const std::string& a, const std::string& b) {
+        if (b[0] == '0' && b.size() == 1) throw std::runtime_error("invalid argument - zero denominator.");
+        //only zeroes
+        if (std::all_of(b.begin(), b.end(), [](char c) { return c == '0'; }))
+            throw std::runtime_error("invalid argument - zero denominator.");
+        numerator = BigInteger(a);
+        denominator = BigInteger(b);
+        normalizeInner(numerator, denominator);
+    }
+
+    // copy
+    BigRational(const BigRational& other) {
+        numerator = other.numerator;
+        denominator = other.denominator;
+        normalizeInner(numerator, denominator);
+    }
+
+    BigRational& operator=(const BigRational& rhs) {
+        numerator = rhs.numerator;
+        denominator = rhs.denominator;
+        normalizeInner(numerator, denominator);
+        return *this;
+    }
+
+    // unary operators
+    const BigRational& operator+() const {
+        return *this;
+    }
+
+    BigRational operator-() const {
+        BigRational result = *this;
+        setSign(result.numerator, -getSign(result.numerator));
+        return result;
+    }
+
+    // binary arithmetics operators
+    BigRational& operator+=(const BigRational& rhs) {
+        *this = *this + rhs;
+        return *this;
+    }
+
+    BigRational& operator-=(const BigRational& rhs) {
+        *this = *this - rhs;
+        return *this;
+    }
+
+    BigRational& operator*=(const BigRational& rhs) {
+        *this = *this * rhs;
+        return *this;
+    }
+
+    BigRational& operator/=(const BigRational& rhs) {
+        *this = *this / rhs;
+        return *this;
+    }
+
+    double sqrt() const {
+        int sign = getSign(numerator) * getSign(denominator);
+        if (sign < 0) throw std::invalid_argument("invalid argument - negative number.");
+        return std::sqrt(toDouble(numerator) / toDouble(denominator));
+    }
+
 #if SUPPORT_ISQRT == 1
     BigInteger isqrt() const;
 #endif
 private:
     // here you can add private data and members, but do not add stuff to
     // public interface, also you can declare friends here if you want
+    BigInteger numerator = BigInteger(0);
+    BigInteger denominator = BigInteger(0);
+
+    friend const BigInteger& getNumerator(const BigRational& br);
+
+    friend void setNumerator(BigRational& br, const BigInteger& bi);
+
+    friend const BigInteger& getDenominator(const BigRational& br);
+
+    friend void setDenominator(BigRational& br, const BigInteger& bi);
+
+    friend BigRational createBigRational(const BigInteger& a, const BigInteger& b);
+
+    friend BigInteger gcd(const BigInteger& a, const BigInteger& b);
+
+    friend int getSign(const BigInteger& bigInt);
+
+    friend inline std::ostream& operator<<(std::ostream& out, const BigRational& rhs);
 
 };
 
-inline BigRational operator+(BigRational lhs, const BigRational& rhs);
-inline BigRational operator-(BigRational lhs, const BigRational& rhs);
-inline BigRational operator*(BigRational lhs, const BigRational& rhs);
-inline BigRational operator/(BigRational lhs, const BigRational& rhs);
+int getSign(const BigInteger& bigInt);
+
+BigRational createBigRational(const BigInteger& a, const BigInteger& b);
+
+BigRational normalize(BigInteger numerator, BigInteger denominator);
+
+inline BigRational operator+(BigRational lhs, const BigRational& rhs) {
+    BigInteger d1 = getDenominator(lhs), d2 = getDenominator(rhs);
+    BigInteger n1 = getNumerator(lhs), n2 = getNumerator(rhs);
+    BigInteger commonDenominator;
+    if (d1 != d2) {
+        commonDenominator = d1 * d2;
+        BigInteger lhsNumerator = n1 * d2;
+        BigInteger rhsNumerator = n2 * d1;
+        return normalize(lhsNumerator + rhsNumerator, commonDenominator);
+    }
+    else {
+        commonDenominator = d1;
+        return normalize(n1 + n2, commonDenominator);
+    }
+}
+
+inline BigRational operator-(BigRational lhs, const BigRational& rhs) {
+    BigInteger d1 = getDenominator(lhs), d2 = getDenominator(rhs);
+    BigInteger n1 = getNumerator(lhs), n2 = getNumerator(rhs);
+    BigInteger commonDenominator;
+    if (d1 != d2) {
+        commonDenominator = d1 * d2;
+        BigInteger lhsNumerator = n1 * d2;
+        BigInteger rhsNumerator = n2 * d1;
+        return normalize(lhsNumerator - rhsNumerator, commonDenominator);
+    }
+    else {
+        commonDenominator = d1;
+        return normalize(n1 - n2, commonDenominator);
+    }
+}
+
+inline BigRational operator*(BigRational lhs, const BigRational& rhs) {
+    BigInteger commonDenominator = getDenominator(lhs) * getDenominator(rhs);
+    auto num = getNumerator(lhs) * getNumerator(rhs);
+    //int sign = getSign(getNumerator(lhs)) * getSign(getNumerator(rhs))
+    return normalize(num, commonDenominator);
+}
+
+inline BigRational operator/(BigRational lhs, const BigRational& rhs) {
+    return normalize(getNumerator(lhs) * getDenominator(rhs), getNumerator(rhs) * getDenominator(lhs));
+}
+
 
 // alternatively you can implement
 // std::strong_ordering operator<=>(const BigRational& lhs, const BigRational& rhs);
 // idea is, that all comparison should work, it is not important how you do it
-inline bool operator==(const BigRational& lhs, const BigRational& rhs);
-inline bool operator!=(const BigRational& lhs, const BigRational& rhs);
-inline bool operator<(const BigRational& lhs, const BigRational& rhs);
-inline bool operator>(const BigRational& lhs, const BigRational& rhs);
-inline bool operator<=(const BigRational& lhs, const BigRational& rhs);
-inline bool operator>=(const BigRational& lhs, const BigRational& rhs);
+inline bool operator==(const BigRational& lhs, const BigRational& rhs) {
+    return (getNumerator(lhs) * getDenominator(rhs)) == (getNumerator(rhs) * getDenominator(lhs));
+}
 
-inline std::ostream& operator<<(std::ostream& lhs, const BigRational& rhs);
+inline bool operator!=(const BigRational& lhs, const BigRational& rhs) {
+    return (getNumerator(lhs) * getDenominator(rhs)) != (getNumerator(rhs) * getDenominator(lhs));
+}
+
+inline bool operator<(const BigRational& lhs, const BigRational& rhs) {
+    //BigInteger commonDenominator = getDenominator(lhs) * getDenominator(rhs);
+    BigInteger lhsNumerator = getNumerator(lhs) * getDenominator(rhs);
+    BigInteger rhsNumerator = getNumerator(rhs) * getDenominator(lhs);
+    return lhsNumerator < rhsNumerator;
+}
+
+inline bool operator>(const BigRational& lhs, const BigRational& rhs) {
+    BigInteger lhsNumerator = getNumerator(lhs) * getDenominator(rhs);
+    BigInteger rhsNumerator = getNumerator(rhs) * getDenominator(lhs);
+    return lhsNumerator > rhsNumerator;
+}
+
+inline bool operator<=(const BigRational& lhs, const BigRational& rhs) {
+    return ((lhs == rhs) || (lhs < rhs));
+}
+
+inline bool operator>=(const BigRational& lhs, const BigRational& rhs) {
+    return ((lhs == rhs) || (lhs > rhs));
+}
+
+inline std::ostream& operator<<(std::ostream& out, const BigRational& rhs) {
+    if (getSign(getNumerator(rhs)) * getSign(getDenominator(rhs)) < 0) {
+        //if not zero
+        if (!(getNumber(rhs.numerator).size() == 1 && (getNumber(rhs.numerator)[0] == 0)))
+            out << '-';
+    }
+
+    // Output the absolute value of the numerator
+    out << abs(getNumerator(rhs));
+
+    // Output the denominator only if it's not 1
+    if (getDenominator(rhs) != BigInteger(1)) {
+        out << '/' << abs(getDenominator(rhs));
+    }
+
+    return out;
+}
 
 #if SUPPORT_IFSTREAM == 1
+
 // this should behave exactly the same as reading int with respect to
 // whitespace, consumed characters etc...
-inline std::istream& operator>>(std::istream& lhs, BigRational& rhs); // bonus
+inline std::istream& operator>>(std::istream& lhs, BigRational& rhs) {
+    std::string numeratorStr, denominatorStr;
+    char delimiter;
+
+    lhs >> numeratorStr;
+    if (numeratorStr.empty() || (numeratorStr.size() == 1 && numeratorStr[0] == '-')) {
+        lhs.setstate(std::ios::failbit);
+        return lhs;
+    }
+
+    lhs >> std::ws >> delimiter;
+    if (!lhs || delimiter != '/') {
+        try {
+            BigInteger numerator(numeratorStr);
+            rhs = createBigRational(numerator, BigInteger(1));
+        }
+        catch (const std::invalid_argument&) {
+            lhs.setstate(std::ios::failbit);
+        }
+        return lhs;
+    }
+
+    lhs >> denominatorStr;
+    if (denominatorStr.empty()) {
+        lhs.setstate(std::ios::failbit);
+        return lhs;
+    }
+
+    try {
+        BigInteger numerator(numeratorStr);
+        BigInteger denominator(denominatorStr);
+        rhs = createBigRational(numerator, denominator);
+    }
+    catch (const std::invalid_argument&) {
+        lhs.setstate(std::ios::failbit);
+    }
+
+    return lhs;
+} // bonus
 #endif
 
 #if SUPPORT_EVAL == 1
@@ -432,23 +726,21 @@ std::vector<int> add(const std::vector<int>& lhs, const std::vector<int>& rhs) {
 }
 
 std::vector<int> subtract(const std::vector<int>& lhs, const std::vector<int>& rhs) {
-    // Ensure lhs is not smaller than rhs. If it is, swap and note that result is negative.
-    bool negativeResult = false;
+
     auto a = lhs;
     auto b = rhs;
 
     if (a.size() < b.size() || (a.size() == b.size() && a < b)) {
-        negativeResult = true;
         std::swap(a, b);
     }
 
-    // Pad the shorter number with zeros
+
     b.insert(b.begin(), a.size() - b.size(), 0);
 
     std::vector<int> result;
     int borrow = 0;
 
-    // Subtract each digit
+
     for (int i = static_cast<int>(a.size() - 1); i >= 0; --i) {
         int digitA = a[i];
         int digitB = b[i] + borrow;
@@ -464,56 +756,21 @@ std::vector<int> subtract(const std::vector<int>& lhs, const std::vector<int>& r
         result.push_back(digitA - digitB);
     }
 
-    // Remove leading zeros from result
+
     while (!result.empty() && result.back() == 0) {
         result.pop_back();
     }
 
-    // If result is empty, return zero
+
     if (result.empty()) {
         return { 0 };
     }
 
-    // If the result is negative, add a negative sign
-    if (negativeResult) {
-        result.push_back(-1); // Assuming -1 denotes negative sign
-    }
-
-    // Reverse the result to get the correct order
     std::reverse(result.begin(), result.end());
 
     return result;
 }
 
-
-//std::vector<int> karatsubaMultiplication(const std::vector<int>& x, const std::vector<int>& y) {
-//	auto n = max(x.size(), y.size());
-//	if (n == 1) {
-//		return std::vector<int>{(x.front()* y.front()) % 10, (x.front()* y.front()) / 10};
-//	}
-//
-//	auto half = n / 2;
-//	std::vector<int> x0(x.begin(), x.begin() + std::min(x.size(), half));
-//	std::vector<int> x1(x.size() > half ? x.begin() + half : x.begin(), x.end());
-//	std::vector<int> y0(y.begin(), y.begin() + std::min(y.size(), half));
-//	std::vector<int> y1(y.size() > half ? y.begin() + half : y.end(), y.end());
-//
-//	std::vector<int> p0 = karatsubaMultiplication(x0, y0);
-//	std::vector<int> p1 = karatsubaMultiplication(x1, y1);
-//	std::vector<int> p2 = karatsubaMultiplication(add(x0, x1), add(y0, y1));
-//	std::vector<int> p3 = subtract(subtract(p2, p1), p0);
-//	size_t x2half = (2 * half);
-//	size_t x1half = (half);
-//
-//	for (size_t i = 0; i < x2half; i++) {
-//		p0.insert(p0.begin(), 0);
-//	}
-//	for (size_t i = 0; i < x1half; i++) {
-//		p3.insert(p3.begin(), 0);
-//	}
-//
-//	return add(add(p0, p1), p3);
-//}
 
 std::vector<int> naive_mul(const std::vector<int>& x, const std::vector<int>& y) {
 
@@ -538,9 +795,6 @@ std::vector<int> naive_mul(const std::vector<int>& x, const std::vector<int>& y)
     return res;
 
 }
-
-
-
 
 
 std::vector<int> karatsuba_mul(const std::vector<int>& x, const std::vector<int>& y) {
@@ -610,3 +864,89 @@ BigInteger abs(const BigInteger& bigInt) {
     result.sign = 1;
     return result;
 }
+
+
+const BigInteger& getNumerator(const BigRational& br) {
+    return br.numerator;
+}
+
+void setNumerator(BigRational& br, const BigInteger& bi) {
+    br.numerator = bi;
+}
+
+const BigInteger& getDenominator(const BigRational& br) {
+    return br.denominator;
+}
+
+void setDenominator(BigRational& br, const BigInteger& bi) {
+    br.numerator = bi;
+}
+
+BigRational createBigRational(const BigInteger& a, const BigInteger& b) {
+    if (b == BigInteger(0)) {
+        throw std::runtime_error("Denominator cannot be zero");
+    }
+    BigRational br;
+    br.numerator = a;
+    br.denominator = b;
+    return br;
+}
+
+BigInteger gcd(const BigInteger& a, const BigInteger& b) {
+    if (b == BigInteger(0)) {
+        return a;
+    }
+    else {
+        return gcd(b, a % b);
+    }
+}
+
+uint64_t gcd64(const uint64_t& a, const uint64_t& b) {
+    if (b == 0) {
+        return a;
+    }
+    else {
+        return gcd64(b, a % b);
+    }
+}
+
+void normalizeInner(BigInteger& numerator, BigInteger& denominator) {
+    int sign = getSign(numerator) * getSign(denominator);
+    BigInteger d = gcd(numerator, denominator);
+    numerator = numerator / d;
+    setSign(numerator, sign);
+    denominator = denominator / d;
+    setSign(denominator, 1);
+}
+
+BigRational normalize(BigInteger numerator, BigInteger denominator) {
+    normalizeInner(numerator, denominator);
+    return createBigRational(numerator, denominator);
+}
+
+BigRational normalize(const BigRational& br) {
+    if (getDenominator(br) == BigInteger(0)) {
+        throw std::runtime_error("Denominator cannot be zero");
+    }
+    auto numerator = getNumerator(br);
+    auto denominator = getDenominator(br);
+    // Normalize the sign
+    int sign = 1;
+    if (numerator < BigInteger(0)) {
+        sign = -1;
+
+    }
+    if (denominator < BigInteger(0)) {
+        sign *= -1;
+
+    }
+
+    BigInteger d = gcd(numerator, denominator);
+
+    numerator = numerator / d;
+    setSign(numerator, sign);
+    denominator = denominator / d;
+    setSign(denominator, 1);
+    return createBigRational(numerator, denominator);
+}
+
